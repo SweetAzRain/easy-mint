@@ -218,43 +218,75 @@ export function useNearWallet() {
     try {
       console.log("Sending transaction with params:", params);
       
-      // Для TWA: попытка обойти проблему с кнопками
+      // --- Обходной путь для TWA ---
       // Проверим, находимся ли мы в Telegram Web App
       // @ts-ignore
-      const isTWA = typeof window !== 'undefined' && window.Telegram?.WebApp;
+      const isTWA = typeof window !== 'undefined' && typeof window.Telegram?.WebApp !== 'undefined';
 
-      let autoTriggered = false;
+      let autoTriggerAttempted = false; // Флаг, чтобы не пытаться вызвать несколько раз
+
       if (isTWA) {
-        // Если в TWA, планируем проверку и автоматический вызов
-        setTimeout(() => {
-          // @ts-ignore
-          if (typeof window.openTelegram === 'function') {
-            console.log("TWA detected, auto-triggering HOT Wallet via Telegram...");
-            try {
-              // @ts-ignore
-              window.openTelegram(); // Открываем напрямую
-              autoTriggered = true;
-              console.log("HOT Wallet Telegram link triggered automatically.");
-            } catch (e) {
-              console.error("Failed to auto-trigger window.openTelegram:", e);
+        console.log("TWA environment detected, setting up auto-trigger for HOT Wallet...");
+        
+        // Создаем Promise, который разрешится, когда появится window.openTelegram
+        const waitForOpenTelegram = new Promise<void>((resolve) => {
+            if (typeof (window as any).openTelegram === 'function') {
+                console.log("window.openTelegram already available.");
+                resolve();
+                return;
             }
-          } else {
-            console.log("window.openTelegram not available yet for auto-trigger.");
-          }
-        }, 0); // Выполнить как можно скорее после начала запроса
-      }
 
+            // Если функции нет, ждем немного и проверяем снова
+            const checkInterval = setInterval(() => {
+                // @ts-ignore
+                if (typeof window.openTelegram === 'function' && !autoTriggerAttempted) {
+                    console.log("window.openTelegram detected.");
+                    clearInterval(checkInterval);
+                    resolve();
+                }
+            }, 100); // Проверяем каждые 100 мс
+
+            // Таймаут на случай, если функция не появится (например, ошибка)
+            setTimeout(() => {
+                clearInterval(checkInterval);
+                console.log("Timeout waiting for window.openTelegram.");
+                // Не резолвим, просто останавливаем проверку
+            }, 10000); // Ждем максимум 10 секунд
+        });
+
+        // Запускаем проверку в фоне
+        waitForOpenTelegram.then(() => {
+            // @ts-ignore
+            if (typeof window.openTelegram === 'function' && !autoTriggerAttempted) {
+                autoTriggerAttempted = true; // Устанавливаем флаг перед вызовом
+                console.log("Auto-triggering HOT Wallet via Telegram...");
+                try {
+                    // @ts-ignore
+                    window.openTelegram(); // Открываем напрямую
+                    console.log("HOT Wallet Telegram link triggered automatically.");
+                } catch (e) {
+                    console.error("Failed to auto-trigger window.openTelegram:", e);
+                     // Сбрасываем флаг в случае ошибки, чтобы можно было попробовать снова
+                     autoTriggerAttempted = false;
+                }
+            } else if (autoTriggerAttempted) {
+                 console.log("Auto-trigger already attempted, skipping.");
+            } else {
+                 console.log("window.openTelegram not available or became unavailable.");
+            }
+        }).catch(err => {
+             console.log("Error in waitForOpenTelegram promise:", err);
+        });
+      }
+      // --- Конец обходного пути ---
+
+      // Основной вызов транзакции
       const result = await walletState.wallet.signAndSendTransaction(params);
-      
-      // Опционально: можно добавить логику для закрытия модального окна,
-      // если оно каким-то образом осталось, но обычно оно закрывается само при успехе/ошибке.
       
       console.log("Transaction sent successfully:", result);
       return result;
     } catch (error) {
       console.error("Failed to send transaction:", error);
-      // Проверим, является ли ошибка связанной с закрытием окна или отказом пользователя
-      // Это может зависеть от конкретной реализации и сообщений об ошибках библиотеки
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast({
         title: "Transaction Failed",
