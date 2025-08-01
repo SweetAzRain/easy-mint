@@ -1,4 +1,4 @@
-// client/src/hooks/use-near-wallet.tsx
+// use-near-wallet.tsx
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { WalletSelector, WalletSelectorUI } from "@hot-labs/near-connect";
@@ -9,7 +9,7 @@ interface NearWalletState {
   accountId?: string;
   selector?: WalletSelector;
   modal?: WalletSelectorUI;
-  wallet?: any;
+  wallet?: any; // Consider typing this more specifically if possible
 }
 
 const ACCOUNT_ID_STORAGE_KEY = 'near-connected-account-id';
@@ -202,123 +202,33 @@ export function useNearWallet() {
     }
   };
 
-// client/src/hooks/use-near-wallet.tsx
-// ... остальные импорты и код без изменений ...
-
-// Найдите в файле вашу оригинальную функцию signAndSendTransaction и ЗАМЕНИТЕ её этой:
-
-// client/src/hooks/use-near-wallet.tsx
-// ... остальные импорты ...
-
-const signAndSendTransaction = async (params: any) => {
-  if (!walletState.isConnected || !walletState.wallet) {
-    const errorMsg = "Wallet not connected. Please connect your wallet first.";
-    console.error(errorMsg);
-    toast({
-      title: "Action Failed",
-      description: errorMsg,
-      variant: "destructive"
-    });
-    throw new Error(errorMsg);
-  }
-
-  try {
-    console.log("Sending transaction with params:", params);
-    
-    // Попробуем использовать прямой вызов через window.selector.open
-    // @ts-ignore
-    if (typeof window.selector?.open === 'function') {
-      try {
-        // Импортируем HOT для генерации requestId
-        const hotModule = await import("@hot-labs/near-connect");
-        const HOTClass = hotModule.HOT;
-        
-        if (HOTClass && HOTClass.shared) {
-          // Создаем временный экземпляр для генерации ID
-          const tempHOT = new HOTClass();
-          const method = "near:signAndSendTransactions";
-          const request = { transactions: [params] };
-          
-          // Генерируем requestId
-          const requestId = await tempHOT.createRequest({ method, request });
-          const link = `hotcall-${requestId}`;
-          const fullTelegramLink = `https://t.me/hot_wallet/app?startapp=${link}`;
-          
-          console.log("Attempting to open HOT Wallet with link:", fullTelegramLink);
-          
-          // Открываем ссылку напрямую
-          // @ts-ignore
-          window.selector.open(fullTelegramLink);
-          
-          // Теперь нам нужно дождаться результата
-          // Попробуем использовать poolResponse из оригинального кода
-          // Но для этого нужно, чтобы HOT.shared.request был вызван...
-          // Это хак, но может сработать
-          
-          // Создаем Promise, который будет ждать результата
-          const resultPromise = new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-              reject(new Error("Timeout waiting for transaction result"));
-            }, 60000); // 60 секунд таймаут
-            
-            const pollForResult = async () => {
-              try {
-                // @ts-ignore
-                const data: any = await HOTClass.shared.getResponse(requestId).catch(() => null);
-                if (data != null) {
-                  clearTimeout(timeout);
-                  if (data.success) {
-                    resolve(data.payload);
-                  } else {
-                    // @ts-ignore
-                    const RequestFailed = hotModule.RequestFailed || class RF extends Error { constructor(m: string) { super(m); } };
-                    reject(new RequestFailed(data.payload?.message || data.payload || "Unknown error from wallet"));
-                  }
-                } else {
-                  // Продолжаем опрос
-                  setTimeout(pollForResult, 2000); // Проверяем каждые 2 секунды
-                }
-              } catch (pollError) {
-                clearTimeout(timeout);
-                reject(pollError);
-              }
-            };
-            
-            // Начинаем опрос
-            setTimeout(pollForResult, 3000); // Начинаем через 3 секунды
-          });
-          
-          const result = await resultPromise;
-          console.log("Transaction completed with result:", result);
-          // Возвращаем результат в формате, ожидаемом_near-selector
-          // HOT возвращает transactions[0], поэтому нам нужно это имитировать
-          return result?.transactions?.[0] || result;
-        }
-      } catch (directOpenError) {
-        console.error("Failed to open HOT Wallet directly:", directOpenError);
-        // Если прямой вызов не удался, продолжаем как обычно
-      }
+  const signAndSendTransaction = async (params: any) => {
+    if (!walletState.isConnected || !walletState.wallet) {
+      const errorMsg = "Wallet not connected. Please connect your wallet first.";
+      console.error(errorMsg);
+      toast({
+        title: "Action Failed",
+        description: errorMsg,
+        variant: "destructive"
+      });
+      throw new Error(errorMsg);
     }
-    
-    // Фоллбэк на стандартную реализацию
-    console.log("Falling back to standard wallet.signAndSendTransaction...");
-    const result = await walletState.wallet.signAndSendTransaction(params);
-    console.log("Transaction sent successfully (fallback):", result);
-    return result;
-    
-  } catch (error) {
-    console.error("Failed to send transaction:", error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    toast({
-      title: "Transaction Failed",
-      description: `Failed to send transaction: ${errorMessage}`,
-      variant: "destructive"
-    });
-    throw error;
-  }
-};
 
-// ... остальной код ...
+    try {
+      console.log("Sending transaction with params:", params);
+      const result = await walletState.wallet.signAndSendTransaction(params);
+      console.log("Transaction sent successfully:", result);
+      return result;
+    } catch (error) {
+      console.error("Failed to send transaction:", error);
+      toast({
+        title: "Transaction Failed",
+        description: `Failed to send transaction: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: "destructive"
+      });
+      throw error;
+    }
+  };
 
   return {
     ...walletState,
