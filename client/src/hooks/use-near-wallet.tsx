@@ -202,12 +202,6 @@ export function useNearWallet() {
     }
   };
 
-  // --- МОДИФИЦИРОВАННАЯ signAndSendTransaction ---
-// client/src/hooks/use-near-wallet.tsx
-// ... все остальные импорты и код без изменений ...
-
-// Найдите в файле вашу оригинальную функцию signAndSendTransaction и ЗАМЕНИТЕ её этой:
-
 // client/src/hooks/use-near-wallet.tsx
 // ... остальные импорты и код без изменений ...
 
@@ -225,57 +219,55 @@ const signAndSendTransaction = async (params: any) => {
     throw new Error(errorMsg);
   }
 
-  // --- ЛОГИКА ДЛЯ TWA: Прямой вызов HOT Wallet через ссылку ---
-  // @ts-ignore
-  const isTWA = typeof window !== 'undefined' && typeof window.Telegram?.WebApp !== 'undefined';
-
-  if (isTWA) {
-    console.log("TWA detected, attempting direct link open for HOT Wallet...");
-    try {
-      // 1. Импортируем необходимые модули из библиотеки
-      const hotModule = await import("@hot-labs/near-connect");
-      const HOTClass = hotModule.HOT;
+  // --- ЛОГИКА ДЛЯ TWA: Показываем ссылку пользователю ---
+  // Просто для отладки/проверки, можно убрать позже
+  console.log("TWA flow: Preparing HOT Wallet link for user...");
+  
+  try {
+    // 1. Импортируем необходимые модули из библиотеки
+    const hotModule = await import("@hot-labs/near-connect");
+    const HOTClass = hotModule.HOT;
+    
+    if (HOTClass && HOTClass.shared) {
+      // 2. Создаем временный экземпляр для генерации requestId
+      const tempHOT = new HOTClass(); 
       
-      if (HOTClass && HOTClass.shared) {
-        // 2. Создаем временный экземпляр для генерации requestId
-        //    (Мы не будем использовать его для request, только для ID)
-        const tempHOT = new HOTClass(); 
-        
-        // 3. Формируем данные запроса, как это делает библиотека
-        const method = "near:signAndSendTransactions";
-        const request = { transactions: [params] }; // params - это наш payload { receiverId, actions }
-        
-        // 4. Создаем requestId (это асинхронная операция, как в оригинальном коде)
-        const requestId = await tempHOT.createRequest({ method, request });
-        
-        // 5. Формируем ссылку
-        const link = `hotcall-${requestId}`;
-        const fullTelegramLink = `https://t.me/hot_wallet/app?startapp=${link}`;
-        
-        console.log("SUCCESS: Computed HOT Wallet link:", fullTelegramLink);
-        
-        // 6. Открываем ссылку напрямую через window.selector.open
-        //    который в TWA вызывает Telegram.WebApp.openTelegramLink
-        // @ts-ignore
-        if (typeof window.selector?.open === 'function') {
-          console.log("SUCCESS: Calling window.selector.open with computed link...");
-          // @ts-ignore
-          window.selector.open(fullTelegramLink);
-          console.log("SUCCESS: window.selector.open called with link.");
-        } else {
-          console.error("ERROR: window.selector.open is not available for direct link call.");
-          // Альтернатива: попробовать window.open, но это менее надежно в TWA
-          // window.open(fullTelegramLink, '_blank');
-        }
-      } else {
-        console.error("ERROR: HOT class or HOT.shared not found for direct link creation.");
-      }
-    } catch (directLinkError) {
-      console.error("ERROR: Failed to create and open direct HOT Wallet link:", directLinkError);
-      // Если прямой вызов не удался, продолжаем как обычно (с окном)
+      // 3. Формируем данные запроса, как это делает библиотека
+      const method = "near:signAndSendTransactions";
+      const request = { transactions: [params] }; // params - это наш payload { receiverId, actions }
+      
+      // 4. Создаем requestId (это асинхронная операция)
+      const requestId = await tempHOT.createRequest({ method, request });
+      
+      // 5. Формируем ссылку
+      const link = `hotcall-${requestId}`;
+      const fullTelegramLink = `https://t.me/hot_wallet/app?startapp=${link}`;
+      
+      console.log("SUCCESS: Computed HOT Wallet link:", fullTelegramLink);
+      
+      // 6. ПОКАЗЫВАЕМ ССЫЛКУ ПОЛЬЗОВАТЕЛЮ
+      // Выводим alert или можно сделать более красивый UI
+      alert(`Скопируйте эту ссылку и вставьте в Telegram или браузер:\n\n${fullTelegramLink}\n\nПосле подписания транзакции нажмите OK.`);
+      
+      // Альтернатива alert - можно создать div на странице с ссылкой
+      // const linkDiv = document.createElement('div');
+      // linkDiv.innerHTML = `
+      //   <div style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); 
+      //                background: #ffeb3b; padding: 15px; border: 1px solid #ccc; z-index: 10000;">
+      //     <p>Откройте эту ссылку в Telegram для подписания:</p>
+      //     <a href="${fullTelegramLink}" target="_blank">${fullTelegramLink}</a>
+      //     <button onclick="this.parentElement.remove()">Закрыть</button>
+      //   </div>`;
+      // document.body.appendChild(linkDiv);
+      
+    } else {
+      console.error("ERROR: HOT class not found for link creation.");
     }
+  } catch (linkCreationError) {
+    console.error("ERROR: Failed to create HOT Wallet link:", linkCreationError);
+    // Если не удалось создать ссылку, продолжаем как обычно (с окном)
   }
-  // --- КОНЕЦ ЛОГИКИ ДЛЯ TWA ---
+  // --- КОНЕЦ ЛОГИКИ ПОКАЗА ССЫЛКИ ---
 
   try {
     console.log("Sending transaction with params:", params);
@@ -295,9 +287,6 @@ const signAndSendTransaction = async (params: any) => {
 };
 
 // ... остальной код файла без изменений ...
-
-// ... остальной код файла без изменений ...
-  // --- КОНЕЦ МОДИФИЦИРОВАННОЙ signAndSendTransaction ---
 
   return {
     ...walletState,
