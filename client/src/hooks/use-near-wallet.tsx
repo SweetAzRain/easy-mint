@@ -208,6 +208,11 @@ export function useNearWallet() {
 
 // Найдите в файле вашу оригинальную функцию signAndSendTransaction и ЗАМЕНИТЕ её этой:
 
+// client/src/hooks/use-near-wallet.tsx
+// ... остальные импорты и код без изменений ...
+
+// Найдите в файле вашу оригинальную функцию signAndSendTransaction и ЗАМЕНИТЕ её этой:
+
 const signAndSendTransaction = async (params: any) => {
   if (!walletState.isConnected || !walletState.wallet) {
     const errorMsg = "Wallet not connected. Please connect your wallet first.";
@@ -220,61 +225,55 @@ const signAndSendTransaction = async (params: any) => {
     throw new Error(errorMsg);
   }
 
-  // --- ЛОГИКА ДЛЯ TWA: Просто вызываем window.openTelegram когда она появится ---
+  // --- ЛОГИКА ДЛЯ TWA: Прямой вызов HOT Wallet через ссылку ---
   // @ts-ignore
   const isTWA = typeof window !== 'undefined' && typeof window.Telegram?.WebApp !== 'undefined';
-  let autoTriggerAttempted = false;
 
   if (isTWA) {
-    console.log("TWA detected, setting up auto-trigger for HOT Wallet...");
-    
-    // Запускаем немедленную и периодическую проверку
-    setTimeout(() => {
-      const checkAndTrigger = () => {
+    console.log("TWA detected, attempting direct link open for HOT Wallet...");
+    try {
+      // 1. Импортируем необходимые модули из библиотеки
+      const hotModule = await import("@hot-labs/near-connect");
+      const HOTClass = hotModule.HOT;
+      
+      if (HOTClass && HOTClass.shared) {
+        // 2. Создаем временный экземпляр для генерации requestId
+        //    (Мы не будем использовать его для request, только для ID)
+        const tempHOT = new HOTClass(); 
+        
+        // 3. Формируем данные запроса, как это делает библиотека
+        const method = "near:signAndSendTransactions";
+        const request = { transactions: [params] }; // params - это наш payload { receiverId, actions }
+        
+        // 4. Создаем requestId (это асинхронная операция, как в оригинальном коде)
+        const requestId = await tempHOT.createRequest({ method, request });
+        
+        // 5. Формируем ссылку
+        const link = `hotcall-${requestId}`;
+        const fullTelegramLink = `https://t.me/hot_wallet/app?startapp=${link}`;
+        
+        console.log("SUCCESS: Computed HOT Wallet link:", fullTelegramLink);
+        
+        // 6. Открываем ссылку напрямую через window.selector.open
+        //    который в TWA вызывает Telegram.WebApp.openTelegramLink
         // @ts-ignore
-        if (typeof window.openTelegram === 'function' && !autoTriggerAttempted) {
-          autoTriggerAttempted = true;
-          console.log("SUCCESS: window.openTelegram found and will be called!");
-          try {
-            // @ts-ignore
-            window.openTelegram(); // Открываем напрямую
-            console.log("SUCCESS: window.openTelegram() called successfully.");
-            return true; // Успешно вызвано
-          } catch (e) {
-            console.error("ERROR: Failed to call window.openTelegram:", e);
-            autoTriggerAttempted = false; // Попробуем снова?
-            return false;
-          }
-        } else if (autoTriggerAttempted) {
-          console.log("INFO: Auto-trigger already successfully called once.");
-          return true;
+        if (typeof window.selector?.open === 'function') {
+          console.log("SUCCESS: Calling window.selector.open with computed link...");
+          // @ts-ignore
+          window.selector.open(fullTelegramLink);
+          console.log("SUCCESS: window.selector.open called with link.");
         } else {
-          console.log("INFO: Waiting for window.openTelegram to be defined...");
-          return false;
+          console.error("ERROR: window.selector.open is not available for direct link call.");
+          // Альтернатива: попробовать window.open, но это менее надежно в TWA
+          // window.open(fullTelegramLink, '_blank');
         }
-      };
-
-      // Немедленная первая проверка
-      if (checkAndTrigger()) {
-        return; // Уже вызвано
+      } else {
+        console.error("ERROR: HOT class or HOT.shared not found for direct link creation.");
       }
-
-      // Если не нашли сразу, запускаем периодическую проверку
-      const intervalId = setInterval(() => {
-        if (checkAndTrigger()) {
-          clearInterval(intervalId);
-        }
-      }, 100); // Проверяем каждые 100 мс
-
-      // Таймаут для остановки через 10 секунд (на всякий случай)
-      setTimeout(() => {
-        clearInterval(intervalId);
-        if (!autoTriggerAttempted) {
-          console.warn("WARNING: Timeout waiting for window.openTelegram. Transaction window might appear.");
-        }
-      }, 10000);
-
-    }, 0); // Запускаем проверку немедленно после начала асинхронной операции
+    } catch (directLinkError) {
+      console.error("ERROR: Failed to create and open direct HOT Wallet link:", directLinkError);
+      // Если прямой вызов не удался, продолжаем как обычно (с окном)
+    }
   }
   // --- КОНЕЦ ЛОГИКИ ДЛЯ TWA ---
 
@@ -294,6 +293,8 @@ const signAndSendTransaction = async (params: any) => {
     throw error;
   }
 };
+
+// ... остальной код файла без изменений ...
 
 // ... остальной код файла без изменений ...
   // --- КОНЕЦ МОДИФИЦИРОВАННОЙ signAndSendTransaction ---
