@@ -207,6 +207,9 @@ export function useNearWallet() {
 
 // Найдите в файле вашу оригинальную функцию signAndSendTransaction и ЗАМЕНИТЕ её этой:
 
+// client/src/hooks/use-near-wallet.tsx
+// ... остальные импорты ...
+
 const signAndSendTransaction = async (params: any) => {
   if (!walletState.isConnected || !walletState.wallet) {
     const errorMsg = "Wallet not connected. Please connect your wallet first.";
@@ -219,61 +222,90 @@ const signAndSendTransaction = async (params: any) => {
     throw new Error(errorMsg);
   }
 
-  // --- ЛОГИКА ДЛЯ TWA: Показываем ссылку пользователю ---
-  // Просто для отладки/проверки, можно убрать позже
-  console.log("TWA flow: Preparing HOT Wallet link for user...");
-  
-  try {
-    // 1. Импортируем необходимые модули из библиотеки
-    const hotModule = await import("@hot-labs/near-connect");
-    const HOTClass = hotModule.HOT;
-    
-    if (HOTClass && HOTClass.shared) {
-      // 2. Создаем временный экземпляр для генерации requestId
-      const tempHOT = new HOTClass(); 
-      
-      // 3. Формируем данные запроса, как это делает библиотека
-      const method = "near:signAndSendTransactions";
-      const request = { transactions: [params] }; // params - это наш payload { receiverId, actions }
-      
-      // 4. Создаем requestId (это асинхронная операция)
-      const requestId = await tempHOT.createRequest({ method, request });
-      
-      // 5. Формируем ссылку
-      const link = `hotcall-${requestId}`;
-      const fullTelegramLink = `https://t.me/hot_wallet/app?startapp=${link}`;
-      
-      console.log("SUCCESS: Computed HOT Wallet link:", fullTelegramLink);
-      
-      // 6. ПОКАЗЫВАЕМ ССЫЛКУ ПОЛЬЗОВАТЕЛЮ
-      // Выводим alert или можно сделать более красивый UI
-      alert(`Скопируйте эту ссылку и вставьте в Telegram или браузер:\n\n${fullTelegramLink}\n\nПосле подписания транзакции нажмите OK.`);
-      
-      // Альтернатива alert - можно создать div на странице с ссылкой
-      // const linkDiv = document.createElement('div');
-      // linkDiv.innerHTML = `
-      //   <div style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); 
-      //                background: #ffeb3b; padding: 15px; border: 1px solid #ccc; z-index: 10000;">
-      //     <p>Откройте эту ссылку в Telegram для подписания:</p>
-      //     <a href="${fullTelegramLink}" target="_blank">${fullTelegramLink}</a>
-      //     <button onclick="this.parentElement.remove()">Закрыть</button>
-      //   </div>`;
-      // document.body.appendChild(linkDiv);
-      
-    } else {
-      console.error("ERROR: HOT class not found for link creation.");
-    }
-  } catch (linkCreationError) {
-    console.error("ERROR: Failed to create HOT Wallet link:", linkCreationError);
-    // Если не удалось создать ссылку, продолжаем как обычно (с окном)
-  }
-  // --- КОНЕЦ ЛОГИКИ ПОКАЗА ССЫЛКИ ---
-
   try {
     console.log("Sending transaction with params:", params);
+    
+    // Попробуем использовать прямой вызов через window.selector.open
+    // @ts-ignore
+    if (typeof window.selector?.open === 'function') {
+      try {
+        // Импортируем HOT для генерации requestId
+        const hotModule = await import("@hot-labs/near-connect");
+        const HOTClass = hotModule.HOT;
+        
+        if (HOTClass && HOTClass.shared) {
+          // Создаем временный экземпляр для генерации ID
+          const tempHOT = new HOTClass();
+          const method = "near:signAndSendTransactions";
+          const request = { transactions: [params] };
+          
+          // Генерируем requestId
+          const requestId = await tempHOT.createRequest({ method, request });
+          const link = `hotcall-${requestId}`;
+          const fullTelegramLink = `https://t.me/hot_wallet/app?startapp=${link}`;
+          
+          console.log("Attempting to open HOT Wallet with link:", fullTelegramLink);
+          
+          // Открываем ссылку напрямую
+          // @ts-ignore
+          window.selector.open(fullTelegramLink);
+          
+          // Теперь нам нужно дождаться результата
+          // Попробуем использовать poolResponse из оригинального кода
+          // Но для этого нужно, чтобы HOT.shared.request был вызван...
+          // Это хак, но может сработать
+          
+          // Создаем Promise, который будет ждать результата
+          const resultPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              reject(new Error("Timeout waiting for transaction result"));
+            }, 60000); // 60 секунд таймаут
+            
+            const pollForResult = async () => {
+              try {
+                // @ts-ignore
+                const data: any = await HOTClass.shared.getResponse(requestId).catch(() => null);
+                if (data != null) {
+                  clearTimeout(timeout);
+                  if (data.success) {
+                    resolve(data.payload);
+                  } else {
+                    // @ts-ignore
+                    const RequestFailed = hotModule.RequestFailed || class RF extends Error { constructor(m: string) { super(m); } };
+                    reject(new RequestFailed(data.payload?.message || data.payload || "Unknown error from wallet"));
+                  }
+                } else {
+                  // Продолжаем опрос
+                  setTimeout(pollForResult, 2000); // Проверяем каждые 2 секунды
+                }
+              } catch (pollError) {
+                clearTimeout(timeout);
+                reject(pollError);
+              }
+            };
+            
+            // Начинаем опрос
+            setTimeout(pollForResult, 3000); // Начинаем через 3 секунды
+          });
+          
+          const result = await resultPromise;
+          console.log("Transaction completed with result:", result);
+          // Возвращаем результат в формате, ожидаемом_near-selector
+          // HOT возвращает transactions[0], поэтому нам нужно это имитировать
+          return result?.transactions?.[0] || result;
+        }
+      } catch (directOpenError) {
+        console.error("Failed to open HOT Wallet directly:", directOpenError);
+        // Если прямой вызов не удался, продолжаем как обычно
+      }
+    }
+    
+    // Фоллбэк на стандартную реализацию
+    console.log("Falling back to standard wallet.signAndSendTransaction...");
     const result = await walletState.wallet.signAndSendTransaction(params);
-    console.log("Transaction sent successfully:", result);
+    console.log("Transaction sent successfully (fallback):", result);
     return result;
+    
   } catch (error) {
     console.error("Failed to send transaction:", error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -286,7 +318,7 @@ const signAndSendTransaction = async (params: any) => {
   }
 };
 
-// ... остальной код файла без изменений ...
+// ... остальной код ...
 
   return {
     ...walletState,
