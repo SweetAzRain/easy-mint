@@ -33,11 +33,17 @@ export function useNearWallet() {
       // ИСПОЛЬЗУЕМ ТОЛЬКО MAINNET И НЕ ЗАПРАШИВАЕМ TESTNET
       const selector = new WalletSelector({
         network: "mainnet", // <-- ОБЯЗАТЕЛЬНО mainnet
-        features: {
-          signAndSendTransaction: true
-          // НЕ ВКЛЮЧАЕМ testnet: true
-        }
+        features: { signAndSendTransaction: true }
       });
+      setTimeout(() => {
+        try {
+          window.dispatchEvent(new Event("near-selector-ready"));
+          console.log("Re-sent near-selector-ready for injected wallets");
+        } catch (e) {
+          console.warn("Could not re-send near-selector-ready", e);
+        }
+      }, 1000);
+      
       const modal = new WalletSelectorUI(selector);
 
       // --- Установка обработчиков событий ---
