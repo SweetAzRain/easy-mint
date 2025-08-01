@@ -32,7 +32,10 @@ export function useNearWallet() {
       const selector = new WalletSelector({
         network: "mainnet",
         features: {
+          signMessage: true,
           signAndSendTransaction: true,
+          signInWithoutAddKey: true,
+          signAndSendTransactions: true
         }
       });
       const modal = new WalletSelectorUI(selector);
