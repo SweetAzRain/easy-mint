@@ -26,16 +26,4 @@ function App() {
   );
 }
 
-function App() {
-  useEffect(() => {
-    if (window.Telegram?.WebApp) {
-      window.Telegram.WebApp.ready();
-      window.Telegram.WebApp.expand();
-      console.log("Telegram Web App initialized, viewport:", window.Telegram.WebApp.viewportHeight);
-    } else {
-      console.warn("Telegram Web App SDK not available");
-    }
-  }, []);
-}
-
 export default App;
