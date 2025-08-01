@@ -195,7 +195,7 @@ export default function MintPage() {
               <div className="w-8 h-8 bg-gradient-to-br from-primary to-purple-600 rounded-lg flex items-center justify-center">
                 <Box className="text-white text-sm" size={16} />
               </div>
-              <h1 className="text-xl font-bold text-white">NEAR NFT Minter</h1>
+              <h1 className="text-xl font-bold text-white">NEAR NFT EASY MINT</h1>
             </div>
             <WalletConnection
               isConnected={isConnected}
@@ -260,7 +260,7 @@ export default function MintPage() {
         isOpen={mintingState.showSuccess}
         tokenId={mintingState.tokenId}
         onViewNFT={() => {
-          window.open(`https://testnet.nearblocks.io/ru/address/${accountId}?tab=nfttokentxns`, '_blank');
+          window.open(`https://nearblocks.io/ru/address/${accountId}?tab=nfttokentxns`, '_blank');
         }}
         onMintAnother={handleMintAnother}
         onClose={handleCloseSuccess}

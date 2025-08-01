@@ -21,12 +21,12 @@ export async function mintNFT(params: MintParams, wallet?: any): Promise<MintRes
     if (wallet.mock) {
       // Demo mode simulation
       console.log("Demo mode - simulating NEAR contract call:");
-      console.log(`near call monkey_proxy.testnet nft_mint_proxy '{"token_metadata": ${JSON.stringify({
+      console.log(`near call easy-proxy.near nft_mint_proxy '{"token_metadata": ${JSON.stringify({
         title: params.title,
         description: params.description,
         media: params.media,
         reference: params.reference
-      })}}' --accountId user.testnet --deposit 0.2 --gas 300000000000000 --networkId testnet`);
+      })}}' --accountId user.near --deposit 0.2 --gas 300000000000000 --networkId mainnet`);
       
       await new Promise(resolve => setTimeout(resolve, 3000));
       
@@ -41,7 +41,7 @@ export async function mintNFT(params: MintParams, wallet?: any): Promise<MintRes
     console.log("Calling NEAR smart contract...");
     
     const result = await wallet.signAndSendTransaction({
-      receiverId: "monkey_proxy.testnet",
+      receiverId: "easy-proxy.near",
       actions: [{
         type: "FunctionCall",
         params: {

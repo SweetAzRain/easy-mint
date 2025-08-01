@@ -26,11 +26,11 @@ export function useNearWallet() {
       console.log("Initializing NEAR wallet selector...");
       
       const selector = new WalletSelector({ 
-        network: "testnet",
+        network: "mainnet",
         // Support all compatible wallets with required features
         features: { 
           signAndSendTransaction: true,
-          testnet: true 
+          testnet: false
         }
       });
       
@@ -97,7 +97,7 @@ export function useNearWallet() {
     try {
       if (walletState.wallet?.mock) {
         // Mock wallet connection fallback
-        const mockAccountId = "user.testnet";
+        const mockAccountId = "user.near";
         setWalletState({
           isConnected: true,
           accountId: mockAccountId,
