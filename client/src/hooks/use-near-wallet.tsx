@@ -203,149 +203,99 @@ export function useNearWallet() {
   };
 
   // --- МОДИФИЦИРОВАННАЯ signAndSendTransaction ---
-  const signAndSendTransaction = async (params: any) => {
-    if (!walletState.isConnected || !walletState.wallet) {
-      const errorMsg = "Wallet not connected. Please connect your wallet first.";
-      console.error(errorMsg);
-      toast({
-        title: "Action Failed",
-        description: errorMsg,
-        variant: "destructive"
-      });
-      throw new Error(errorMsg);
-    }
+// client/src/hooks/use-near-wallet.tsx
+// ... все остальные импорты и код без изменений ...
 
-    // --- ЛОГИКА ДЛЯ TWA: Принудительный вызов HOT Wallet ---
-    // @ts-ignore
-    const isTWA = typeof window !== 'undefined' && typeof window.Telegram?.WebApp !== 'undefined';
+// Найдите в файле вашу оригинальную функцию signAndSendTransaction и ЗАМЕНИТЕ её этой:
 
-    let originalHOTRequest: Function | undefined;
-    let requestInProgressForThisCall = false;
+const signAndSendTransaction = async (params: any) => {
+  if (!walletState.isConnected || !walletState.wallet) {
+    const errorMsg = "Wallet not connected. Please connect your wallet first.";
+    console.error(errorMsg);
+    toast({
+      title: "Action Failed",
+      description: errorMsg,
+      variant: "destructive"
+    });
+    throw new Error(errorMsg);
+  }
 
-    if (isTWA) {
-        console.log("TWA environment detected, preparing direct wallet call for transaction...");
-        try {
-            // 1. Получаем доступ к классу HOT
-            const hotModule = await import("@hot-labs/near-connect");
-            const HOTClass = hotModule.HOT;
-            if (!HOTClass || !HOTClass.shared) {
-                throw new Error("HOT class or HOT.shared not found");
-            }
+  // --- ЛОГИКА ДЛЯ TWA: Просто вызываем window.openTelegram когда она появится ---
+  // @ts-ignore
+  const isTWA = typeof window !== 'undefined' && typeof window.Telegram?.WebApp !== 'undefined';
+  let autoTriggerAttempted = false;
 
-            // 2. Сохраняем оригинальный метод request
-            originalHOTRequest = HOTClass.shared.request;
-
-            // 3. Подменяем метод request
-            HOTClass.shared.request = async function (method: string, request: any) {
-                console.log("Intercepted HOT.shared.request for transaction:", method, request?.transactions?.length || 'N/A');
-                
-                // Защита от рекурсии/повторных вызовов для этого конкретного вызова
-                if (requestInProgressForThisCall) {
-                   console.log("Request already in progress for this transaction call, calling original...");
-                   // @ts-ignore
-                   return originalHOTRequest.apply(this, arguments);
-                }
-                
-                requestInProgressForThisCall = true;
-
-                try {
-                    // 4. Выполняем почти всю оригинальную логику до renderUI
-                    // (Копируем необходимые части из wallets/hotwallet/index.ts HOT.request)
-                    
-                    // --- Начало копирования логики ---
-                    const requestId = await this.createRequest({ method, request });
-                    const link = `hotcall-${requestId}`;
-                    const fullTelegramLink = `https://t.me/hot_wallet/app?startapp=${link}`;
-                    
-                    console.log("Computed HOT Wallet link for transaction:", fullTelegramLink);
-
-                    // 5. ВАЖНО: НЕ вызываем renderUI()!
-                    // renderUI(); // <-- УБРАНО
-
-                    // 6. ВАЖНО: НЕ создаем QR-код!
-                    // const qr = document.querySelector(".qr-code"); // <-- УБРАНО
-                    
-                    // 7. ВАЖНО: НЕ определяем window.openTelegram и т.д.!
-                    // window.openTelegram = ... // <-- УБРАНО
-
-                    // 8. Сразу вызываем window.selector.open с ссылкой!
-                    // @ts-ignore
-                    if (typeof window.selector?.open === 'function') {
-                        console.log("Calling window.selector.open directly for transaction...");
-                        // @ts-ignore
-                        window.selector.open(fullTelegramLink);
-                        console.log("window.selector.open for transaction called successfully.");
-                    } else {
-                        console.error("window.selector.open is not available for direct transaction call.");
-                    }
-
-                    // 9. Запускаем poolResponse как обычно (он будет ждать результата)
-                    // Копируем wait и poolResponse из оригинального кода
-                    const wait = (timeout: number) => new Promise<void>((resolve) => setTimeout(resolve, timeout));
-                    
-                    const poolResponse = async () => {
-                      await wait(3000); // Начальная задержка
-                      const data: any = await this.getResponse(requestId).catch(() => null);
-                      if (data == null) return await poolResponse(); // Рекурсивный вызов
-                      if (data.success) return data.payload;
-                      // Предполагаем, что RequestFailed доступен или создаем его
-                      // @ts-ignore
-                      const RequestFailed = hotModule.RequestFailed || class RF extends Error { constructor(m: string) { super(m); } };
-                      throw new RequestFailed(data.payload?.message || data.payload || "Unknown error from wallet");
-                    };
-
-                    const result = await poolResponse();
-                    console.log("HOT transaction request completed with result:", result);
-                    return result;
-
-                } catch (interceptError) {
-                    console.error("Error in intercepted HOT transaction request:", interceptError);
-                    throw interceptError;
-                } finally {
-                    requestInProgressForThisCall = false;
-                }
-            };
-
-            console.log("HOT.shared.request successfully intercepted for this transaction.");
-
-        } catch (patchError) {
-            console.error("Failed to patch HOT.shared.request for transaction:", patchError);
-            // Если не удалось подменить, продолжаем как обычно (с окном)
+  if (isTWA) {
+    console.log("TWA detected, setting up auto-trigger for HOT Wallet...");
+    
+    // Запускаем немедленную и периодическую проверку
+    setTimeout(() => {
+      const checkAndTrigger = () => {
+        // @ts-ignore
+        if (typeof window.openTelegram === 'function' && !autoTriggerAttempted) {
+          autoTriggerAttempted = true;
+          console.log("SUCCESS: window.openTelegram found and will be called!");
+          try {
+            // @ts-ignore
+            window.openTelegram(); // Открываем напрямую
+            console.log("SUCCESS: window.openTelegram() called successfully.");
+            return true; // Успешно вызвано
+          } catch (e) {
+            console.error("ERROR: Failed to call window.openTelegram:", e);
+            autoTriggerAttempted = false; // Попробуем снова?
+            return false;
+          }
+        } else if (autoTriggerAttempted) {
+          console.log("INFO: Auto-trigger already successfully called once.");
+          return true;
+        } else {
+          console.log("INFO: Waiting for window.openTelegram to be defined...");
+          return false;
         }
-    }
-    // --- КОНЕЦ ЛОГИКИ ДЛЯ TWA ---
+      };
 
-    try {
-      console.log("Sending transaction with params:", params);
-      const result = await walletState.wallet.signAndSendTransaction(params);
-      console.log("Transaction sent successfully:", result);
-      return result;
-    } catch (error) {
-      console.error("Failed to send transaction:", error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      toast({
-        title: "Transaction Failed",
-        description: `Failed to send transaction: ${errorMessage}`,
-        variant: "destructive"
-      });
-      throw error;
-    } finally {
-        // --- ВОССТАНОВЛЕНИЕ оригинального метода после вызова ---
-        if (isTWA && originalHOTRequest) {
-            try {
-                const hotModule = await import("@hot-labs/near-connect");
-                const HOTClass = hotModule.HOT;
-                if (HOTClass && HOTClass.shared) {
-                    HOTClass.shared.request = originalHOTRequest;
-                    console.log("Original HOT.shared.request restored after transaction call.");
-                }
-            } catch (restoreError) {
-                console.error("Failed to restore original HOT.shared.request after transaction call:", restoreError);
-            }
+      // Немедленная первая проверка
+      if (checkAndTrigger()) {
+        return; // Уже вызвано
+      }
+
+      // Если не нашли сразу, запускаем периодическую проверку
+      const intervalId = setInterval(() => {
+        if (checkAndTrigger()) {
+          clearInterval(intervalId);
         }
-        // --- КОНЕЦ ВОССТАНОВЛЕНИЯ ---
-    }
-  };
+      }, 100); // Проверяем каждые 100 мс
+
+      // Таймаут для остановки через 10 секунд (на всякий случай)
+      setTimeout(() => {
+        clearInterval(intervalId);
+        if (!autoTriggerAttempted) {
+          console.warn("WARNING: Timeout waiting for window.openTelegram. Transaction window might appear.");
+        }
+      }, 10000);
+
+    }, 0); // Запускаем проверку немедленно после начала асинхронной операции
+  }
+  // --- КОНЕЦ ЛОГИКИ ДЛЯ TWA ---
+
+  try {
+    console.log("Sending transaction with params:", params);
+    const result = await walletState.wallet.signAndSendTransaction(params);
+    console.log("Transaction sent successfully:", result);
+    return result;
+  } catch (error) {
+    console.error("Failed to send transaction:", error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    toast({
+      title: "Transaction Failed",
+      description: `Failed to send transaction: ${errorMessage}`,
+      variant: "destructive"
+    });
+    throw error;
+  }
+};
+
+// ... остальной код файла без изменений ...
   // --- КОНЕЦ МОДИФИЦИРОВАННОЙ signAndSendTransaction ---
 
   return {
