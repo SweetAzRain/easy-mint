@@ -217,14 +217,48 @@ export function useNearWallet() {
 
     try {
       console.log("Sending transaction with params:", params);
+      
+      // Для TWA: попытка обойти проблему с кнопками
+      // Проверим, находимся ли мы в Telegram Web App
+      // @ts-ignore
+      const isTWA = typeof window !== 'undefined' && window.Telegram?.WebApp;
+
+      let autoTriggered = false;
+      if (isTWA) {
+        // Если в TWA, планируем проверку и автоматический вызов
+        setTimeout(() => {
+          // @ts-ignore
+          if (typeof window.openTelegram === 'function') {
+            console.log("TWA detected, auto-triggering HOT Wallet via Telegram...");
+            try {
+              // @ts-ignore
+              window.openTelegram(); // Открываем напрямую
+              autoTriggered = true;
+              console.log("HOT Wallet Telegram link triggered automatically.");
+            } catch (e) {
+              console.error("Failed to auto-trigger window.openTelegram:", e);
+            }
+          } else {
+            console.log("window.openTelegram not available yet for auto-trigger.");
+          }
+        }, 0); // Выполнить как можно скорее после начала запроса
+      }
+
       const result = await walletState.wallet.signAndSendTransaction(params);
+      
+      // Опционально: можно добавить логику для закрытия модального окна,
+      // если оно каким-то образом осталось, но обычно оно закрывается само при успехе/ошибке.
+      
       console.log("Transaction sent successfully:", result);
       return result;
     } catch (error) {
       console.error("Failed to send transaction:", error);
+      // Проверим, является ли ошибка связанной с закрытием окна или отказом пользователя
+      // Это может зависеть от конкретной реализации и сообщений об ошибках библиотеки
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast({
         title: "Transaction Failed",
-        description: `Failed to send transaction: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        description: `Failed to send transaction: ${errorMessage}`,
         variant: "destructive"
       });
       throw error;
