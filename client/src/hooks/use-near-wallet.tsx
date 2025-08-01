@@ -64,6 +64,7 @@ export function useNearWallet() {
 
       selector.on("wallet:signOut", async () => {
         console.log("Wallet signed out (event received)");
+        console.log("SignIn event: (event received)");
         setWalletState({
           isConnected: false,
           selector,
