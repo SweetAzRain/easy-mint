@@ -42,7 +42,7 @@ export function useNearWallet() {
         } catch (e) {
           console.warn("Could not re-send near-selector-ready", e);
         }
-      }, 1000);
+      }, 5000);
       
       const modal = new WalletSelectorUI(selector);
 
