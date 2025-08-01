@@ -35,6 +35,7 @@ function App() {
     } else {
       console.warn("Telegram Web App SDK not available");
     }
-  }
+  }, []);
+}
 
 export default App;
