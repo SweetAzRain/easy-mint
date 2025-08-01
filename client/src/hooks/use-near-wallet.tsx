@@ -30,18 +30,57 @@ export function useNearWallet() {
     try {
       console.log("Initializing NEAR wallet selector...");
       
-      // --- ВАЖНО: Уберите или измените features.testnet на false, если хотите видеть HOT Wallet ---
-      // HOT Wallet в манифесте имеет "testnet": false, поэтому при features: { testnet: true } он не будет отображаться.
-      // Если вы хотите видеть HOT Wallet, используйте features: { signAndSendTransaction: true } или переключитесь на mainnet с features: { testnet: false }
-      // Для решения проблемы с состоянием оставим как есть, но имейте это в виду.
+      // ИСПОЛЬЗУЕМ ТОЛЬКО MAINNET И НЕ ЗАПРАШИВАЕМ TESTNET
       const selector = new WalletSelector({
-        network: "mainnet", // Или "testnet", если вы тестируете
+        network: "mainnet", // <-- ОБЯЗАТЕЛЬНО mainnet
         features: {
-          signAndSendTransaction: true,
-          // testnet: true // Уберите эту строку, чтобы HOT Wallet появился в списке
+          signAndSendTransaction: true
+          // НЕ ВКЛЮЧАЕМ testnet: true
         }
       });
       const modal = new WalletSelectorUI(selector);
+
+      // --- Установка обработчиков событий ---
+      selector.on("wallet:signOut", async () => {
+        console.log("Wallet signed out (event received)");
+        // Это событие должно сработать, когда кошелек сам инициирует выход или когда signOut успешен
+        setWalletState({
+          isConnected: false,
+          selector, // Оставляем selector и modal
+          modal,
+          accountId: undefined,
+          wallet: undefined // Очищаем экземпляр кошелька
+        });
+        // Удаляем accountId из localStorage вашего приложения
+        localStorage.removeItem(ACCOUNT_ID_STORAGE_KEY);
+        toast({
+          title: "Wallet Disconnected",
+          description: "You have been signed out from your wallet."
+        });
+      });
+
+      selector.on("wallet:signIn", async (event) => {
+        console.log("Wallet signed in (event received):", event);
+        if (event.accounts && event.accounts.length > 0) {
+          const accountId = event.accounts[0].accountId;
+          
+          // НЕ вызываем selector.wallet() здесь, просто обновляем состояние
+          setWalletState(prev => ({
+            isConnected: true,
+            accountId,
+            selector: prev.selector, // Оставляем существующие selector и modal
+            modal: prev.modal,
+            // Не сохраняем wallet в состоянии напрямую из события
+          }));
+          
+          // Сохраняем accountId в localStorage вашего приложения
+          localStorage.setItem(ACCOUNT_ID_STORAGE_KEY, accountId);
+          toast({
+            title: "Wallet Connected",
+            description: `Connected as ${accountId}.`
+          });
+        }
+      });
 
       // --- Проверка начального состояния подключения ---
       let initialConnected = false;
@@ -75,57 +114,6 @@ export function useNearWallet() {
          localStorage.removeItem(ACCOUNT_ID_STORAGE_KEY);
          // Продолжаем инициализацию с неподключенным состоянием
       }
-
-      // --- Установка обработчиков событий ---
-      selector.on("wallet:signOut", async () => {
-        console.log("Wallet signed out (event received)");
-        // Это событие должно сработать, когда кошелек сам инициирует выход или когда signOut успешен
-        setWalletState({
-          isConnected: false,
-          selector, // Оставляем selector и modal
-          modal,
-          accountId: undefined,
-          wallet: undefined // Очищаем экземпляр кошелька
-        });
-        // Удаляем accountId из localStorage вашего приложения
-        localStorage.removeItem(ACCOUNT_ID_STORAGE_KEY);
-        toast({
-          title: "Wallet Disconnected",
-          description: "You have been signed out from your wallet."
-        });
-      });
-
-      selector.on("wallet:signIn", async (event) => {
-        console.log("Wallet signed in (event received):", event);
-        if (event.accounts && event.accounts.length > 0) {
-          const accountId = event.accounts[0].accountId;
-          try {
-              const wallet = await selector.wallet();
-              setWalletState({
-                isConnected: true,
-                accountId,
-                selector,
-                modal,
-                wallet
-              });
-              localStorage.setItem(ACCOUNT_ID_STORAGE_KEY, accountId);
-              toast({
-                title: "Wallet Connected",
-                description: `Connected as ${accountId}.`
-              });
-          } catch (err) {
-              console.error("Failed to get wallet instance after sign in:", err);
-              toast({
-                title: "Connection Error",
-                description: "Failed to finalize wallet connection. Please try again.",
-                variant: "destructive"
-              });
-              setWalletState({ isConnected: false, selector, modal, accountId: undefined, wallet: undefined });
-              localStorage.removeItem(ACCOUNT_ID_STORAGE_KEY);
-          }
-        }
-      });
-
 
       // --- Установка начального состояния ---
       // Устанавливаем состояние с selector/modal и, возможно, уже подключенным кошельком
@@ -229,7 +217,17 @@ export function useNearWallet() {
   };
 
   const signAndSendTransaction = async (params: any) => {
-    if (!walletState.isConnected || !walletState.wallet) {
+    // Получаем актуальный экземпляр кошелька при необходимости
+    let walletToUse = walletState.wallet;
+    if (!walletToUse && walletState.selector && walletState.isConnected) {
+        try {
+            walletToUse = await walletState.selector.wallet();
+        } catch (e) {
+            console.error("Failed to get wallet instance:", e);
+        }
+    }
+
+    if (!walletState.isConnected || !walletToUse) {
       const errorMsg = "Wallet not connected. Please connect your wallet first.";
       console.error(errorMsg);
       toast({
@@ -243,7 +241,7 @@ export function useNearWallet() {
     try {
       console.log("Sending transaction with params:", params);
       // Вызываем метод у конкретного экземпляра кошелька
-      const result = await walletState.wallet.signAndSendTransaction(params);
+      const result = await walletToUse.signAndSendTransaction(params);
       console.log("Transaction sent successfully:", result);
       return result;
     } catch (error) {
