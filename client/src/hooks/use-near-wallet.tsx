@@ -95,61 +95,37 @@ export function useNearWallet() {
         });
       });
 
-      // selector.on("wallet:signIn", async (event) => {
-      //   console.log("Wallet signed in (event received):", event);
-      //   if (event.accounts && event.accounts.length > 0) {
-      //     const accountId = event.accounts[0].accountId;
-      //     try {
-      //         const wallet = await selector.wallet();
-      //         setWalletState({
-      //           isConnected: true,
-      //           accountId,
-      //           selector,
-      //           modal,
-      //           wallet
-      //         });
-      //         localStorage.setItem(ACCOUNT_ID_STORAGE_KEY, accountId);
-      //         toast({
-      //           title: "Wallet Connected",
-      //           description: `Connected as ${accountId}.`
-      //         });
-      //     } catch (err) {
-      //         console.error("Failed to get wallet instance after sign in:", err);
-      //         toast({
-      //           title: "Connection Error",
-      //           description: "Failed to finalize wallet connection. Please try again.",
-      //           variant: "destructive"
-      //         });
-      //         setWalletState({ isConnected: false, selector, modal, accountId: undefined, wallet: undefined });
-      //         localStorage.removeItem(ACCOUNT_ID_STORAGE_KEY);
-      //     }
-      //   }
-      // });
+      selector.on("wallet:signIn", async (event) => {
+        console.log("Wallet signed in (event received):", event);
+        if (event.accounts && event.accounts.length > 0) {
+          const accountId = event.accounts[0].accountId;
+          try {
+              const wallet = await selector.wallet();
+              setWalletState({
+                isConnected: true,
+                accountId,
+                selector,
+                modal,
+                wallet
+              });
+              localStorage.setItem(ACCOUNT_ID_STORAGE_KEY, accountId);
+              toast({
+                title: "Wallet Connected",
+                description: `Connected as ${accountId}.`
+              });
+          } catch (err) {
+              console.error("Failed to get wallet instance after sign in:", err);
+              toast({
+                title: "Connection Error",
+                description: "Failed to finalize wallet connection. Please try again.",
+                variant: "destructive"
+              });
+              setWalletState({ isConnected: false, selector, modal, accountId: undefined, wallet: undefined });
+              localStorage.removeItem(ACCOUNT_ID_STORAGE_KEY);
+          }
+        }
+      });
 
-        // В обработчике wallet:signIn
-        selector.on("wallet:signIn", async (event) => {
-          console.log("Wallet signed in (event received):", event);
-          if (event.accounts && event.accounts.length > 0) {
-            const accountId = event.accounts[0].accountId;
-            // НЕ вызываем selector.wallet() здесь
-            // Вместо этого просто обновляем состояние с известными данными
-            setWalletState(prev => ({
-              isConnected: true,
-              accountId,
-              selector: prev.selector, // Оставляем существующие selector и modal
-              modal: prev.modal,
-              // wallet: prev.wallet // Или не сохраняем wallet в состоянии вообще
-              // Лучше получать wallet через await selector.wallet() при необходимости
-            }));
-            // Сохраняем accountId в localStorage
-            localStorage.setItem(ACCOUNT_ID_STORAGE_KEY, accountId);
-            toast({
-              title: "Wallet Connected",
-              description: `Connected as ${accountId}.`
-            });
-            // НЕТ блока catch здесь, так как мы не делаем потенциально проблемный вызов
-          } else {
-        });
 
       // --- Установка начального состояния ---
       // Устанавливаем состояние с selector/modal и, возможно, уже подключенным кошельком
