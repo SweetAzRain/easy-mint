@@ -1,37 +1,49 @@
-// near.ts
+// client/src/lib/near.ts
 interface MintParams {
   title: string;
   description: string;
   media: string;
   reference: string;
 }
+
 interface MintResult {
   tokenId: string;
   transactionHash: string;
 }
 
-export async function mintNFT(params: MintParams, signAndSendTransactionFn: any): Promise<MintResult> {
+// ИЗМЕНЕНО: Второй аргумент теперь функция
+export async function mintNFT(
+  params: MintParams,
+  signAndSendTransactionFn: (params: any) => Promise<any> // <-- Типизируем аргумент как функцию
+): Promise<MintResult> {
   try {
     console.log("Minting NFT with params:", params);
 
+    // ИЗМЕНЕНО: Проверяем функцию, а не объект wallet
     if (!signAndSendTransactionFn) {
-      throw new Error("Wallet not connected");
+      throw new Error("Wallet not connected or signAndSendTransaction function is missing");
     }
+
+    // Убираем проверку typeof wallet.signAndSendTransaction, так как теперь это функция
 
     // Real wallet implementation
     console.log("Calling NEAR smart contract...");
-    const result = await signAndSendTransaction({
-      receiverId: "easy-proxy.near", // Updated for testnet
+
+    // ИЗМЕНЕНО: Вызываем переданную функцию напрямую
+    const result = await signAndSendTransactionFn({
+      receiverId: "easy-proxy.near", // Убедитесь, что это правильный адрес вашего контракта в mainnet
       actions: [{
         type: "FunctionCall",
         params: {
           methodName: "nft_mint_proxy",
           args: {
-            token_metadata: {
+            // ВАЖНО: Проверьте структуру аргументов вашего контракта
+            // Возможно, должно быть token_metadata, а не token_meta
+            token_meta { // ИЛИ token_metadata: { ... }
               title: params.title,
               description: params.description,
-              media: params.media,
-              reference: params.reference
+              media: params.media.trim(), // trim() для удаления случайных пробелов
+              reference: params.reference.trim()
             }
           },
           gas: "300000000000000",
