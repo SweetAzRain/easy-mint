@@ -200,31 +200,63 @@ export function NearWalletProvider({ children }: NearWalletProviderProps) {
   }, [currentWallet, clearSession, addActivityLog, toast]);
 
   // Функция для подписания и отправки транзакций
+  // ИЗМЕНЕНА: Всегда получает свежий экземпляр кошелька
   const signAndSendTransaction = useCallback(async (params: any) => {
+    // Проверяем наличие selector
+    if (!selector) {
+      const errorMsg = "Wallet selector not initialized";
+      console.error(errorMsg);
+      addActivityLog(errorMsg, 'error');
+      throw new Error(errorMsg);
+    }
+
     try {
-      // Проверяем состояние перед вызовом
-      if (!currentWallet) {
-        // Пытаемся обновить состояние если кошелек не найден
-        if (selector) {
-          const updated = await updateConnectedState(selector);
-          if (!updated) {
-            throw new Error('Wallet not connected');
-          }
-        } else {
-          throw new Error('Wallet not connected');
-        }
-      }
+      addActivityLog(`Getting wallet instance for transaction to ${params.receiverId}`, 'info');
       
+      // ВСЕГДА получаем актуальный экземпляр кошелька
+      const wallet = await selector.wallet();
+      
+      // Проверяем аккаунты у полученного экземпляра
+      const accounts = await wallet.getAccounts();
+      if (!accounts || accounts.length === 0) {
+        const errorMsg = 'No accounts found in wallet';
+        console.error(errorMsg);
+        addActivityLog(errorMsg, 'error');
+        // Обновляем внутреннее состояние на "отключено"
+        setIsConnected(false);
+        setAccountId(null);
+        setCurrentWallet(null);
+        throw new Error(errorMsg);
+      }
+
+      // Обновляем состояние currentWallet на случай, если оно устарело
+      // Это не обязательно для выполнения транзакции, но помогает синхронизировать UI
+      setCurrentWallet(wallet);
+      if (!isConnected) {
+        setIsConnected(true);
+        setAccountId(accounts[0].accountId);
+        setWalletName(wallet.id || 'Unknown Wallet');
+      }
+
       addActivityLog(`Sending transaction to ${params.receiverId}`, 'info');
-      const result = await currentWallet.signAndSendTransaction(params);
+      // Выполняем транзакцию с гарантированно свежим экземпляром
+      const result = await wallet.signAndSendTransaction(params);
       addActivityLog('Transaction sent successfully', 'success');
       return result;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Transaction error:', error);
+      // Проверяем специфичные ошибки и обновляем состояние при необходимости
+      if (error?.message?.includes('not connected') || error?.message?.includes('No accounts')) {
+        setIsConnected(false);
+        setAccountId(null);
+        setCurrentWallet(null);
+      }
       addActivityLog(`Transaction error: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
       throw error;
     }
-  }, [currentWallet, selector, updateConnectedState, addActivityLog]);
+    // Убираем зависимости currentWallet, isConnected, updateConnectedState из useCallback
+    // Оставляем selector, setIsConnected, setAccountId, setCurrentWallet, addActivityLog
+  }, [selector, setIsConnected, setAccountId, setCurrentWallet, addActivityLog]);
 
   const handleNetworkChange = useCallback((newNetwork: "mainnet" | "testnet") => {
     if (isConnected) {
