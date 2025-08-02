@@ -14,9 +14,7 @@ interface NearWalletContextType {
   // Wallet operations
   connectWallet: () => Promise<void>;
   disconnectWallet: () => Promise<void>;
-  signMessage: (message: string) => Promise<void>;
-  sendTransaction: (receiver: string, amount: number) => Promise<void>;
-  signAndSendTransaction: (params: any) => Promise<any>; // ДОБАВЛЕНО
+  signAndSendTransaction: (params: any) => Promise<any>;
   // UI state
   activityLog: ActivityLogEntry[];
   setNetwork: (network: "mainnet" | "testnet") => void;
@@ -33,7 +31,7 @@ export function NearWalletProvider({ children }: NearWalletProviderProps) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [accountId, setAccountId] = useState<string | null>(null);
   const [walletName, setWalletName] = useState("Unknown Wallet");
-  const [network, setNetwork] = useState<"mainnet" | "testnet">("mainnet"); // ИЗМЕНЕНО НА testnet
+  const [network, setNetwork] = useState<"mainnet" | "testnet">("mainnet"); // mainnet по умолчанию
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
   const [selector, setSelector] = useState<any>(null);
   const [modal, setModal] = useState<any>(null);
@@ -53,7 +51,7 @@ export function NearWalletProvider({ children }: NearWalletProviderProps) {
     setWalletName("Unknown Wallet");
   }, []);
 
-  // УЛУЧШЕННАЯ функция обновления состояния подключения
+  // Улучшенная функция обновления состояния подключения
   const updateConnectedState = useCallback(async (selectorInstance: any) => {
     try {
       const wallet = await selectorInstance.wallet();
@@ -64,11 +62,11 @@ export function NearWalletProvider({ children }: NearWalletProviderProps) {
         setIsConnected(true);
         setAccountId(accounts[0].accountId);
         setWalletName(wallet.id || 'Unknown Wallet');
-        addActivityLog(`Wallet state updated: ${accounts[0].accountId}`, 'success');
+        addActivityLog(`Wallet connected: ${accounts[0].accountId}`, 'success');
         return true;
       } else {
         clearSession();
-        addActivityLog('No accounts found in wallet during state update', 'warning');
+        addActivityLog('No accounts found in wallet', 'warning');
         return false;
       }
     } catch (error) {
@@ -81,7 +79,7 @@ export function NearWalletProvider({ children }: NearWalletProviderProps) {
 
   const initializeWallet = useCallback(async () => {
     try {
-      addActivityLog('Initializing NEAR Connect...', 'info');
+      addActivityLog('Initializing NEAR wallet...', 'info');
       if (typeof window === 'undefined') return;
 
       // Initialize WalletSelector
@@ -142,13 +140,13 @@ export function NearWalletProvider({ children }: NearWalletProviderProps) {
         });
       });
 
-      addActivityLog('NEAR Connect initialized successfully', 'success');
+      addActivityLog('NEAR wallet initialized successfully', 'success');
     } catch (error) {
       console.error('Initialization error:', error);
       addActivityLog(`Initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
       toast({
         title: "Initialization Failed",
-        description: "Failed to initialize NEAR Connect",
+        description: "Failed to initialize NEAR wallet",
         variant: "destructive",
       });
     }
@@ -166,7 +164,6 @@ export function NearWalletProvider({ children }: NearWalletProviderProps) {
       }
       setIsConnecting(true);
       addActivityLog('Opening wallet selector...', 'info');
-      // Show wallet selector modal
       modal.open();
     } catch (error) {
       console.error('Connection error:', error);
@@ -202,53 +199,18 @@ export function NearWalletProvider({ children }: NearWalletProviderProps) {
     }
   }, [currentWallet, clearSession, addActivityLog, toast]);
 
-  const signMessage = useCallback(async (message: string) => {
-    try {
-      if (!currentWallet) {
-        throw new Error('No wallet connected');
-      }
-      addActivityLog(`Signing message: "${message}"`, 'info');
-      const signature = await currentWallet.signMessage({ 
-        message,
-        recipient: 'near-connect-test.near',
-        nonce: Buffer.from(crypto.getRandomValues(new Uint8Array(32)))
-      });
-      addActivityLog('Message signed successfully', 'success');
-    } catch (error) {
-      console.error('Sign message error:', error);
-      addActivityLog(`Sign message error: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
-      throw error;
-    }
-  }, [currentWallet, addActivityLog]);
-
-  const sendTransaction = useCallback(async (receiver: string, amount: number) => {
-    try {
-      if (!currentWallet) {
-        throw new Error('No wallet connected');
-      }
-      addActivityLog(`Sending ${amount} NEAR to ${receiver}`, 'info');
-      // For demo purposes - in a real app, you'd construct and send the actual transaction
-      // This would require proper NEAR transaction construction using near-api-js
-      toast({
-        title: "Demo Mode",
-        description: "Transaction demo - implementation would require near-api-js integration",
-      });
-      addActivityLog('Transaction demo completed', 'success');
-    } catch (error) {
-      console.error('Transaction error:', error);
-      addActivityLog(`Transaction error: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
-      throw error;
-    }
-  }, [currentWallet, addActivityLog, toast]);
-
-  // ДОБАВЛЕНА функция для подписания и отправки транзакций
+  // Функция для подписания и отправки транзакций
   const signAndSendTransaction = useCallback(async (params: any) => {
     try {
-      // Дополнительная проверка состояния
-      if (!isConnected || !currentWallet) {
-        // Попытка обновить состояние перед ошибкой
-        const updated = selector ? await updateConnectedState(selector) : false;
-        if (!updated) {
+      // Проверяем состояние перед вызовом
+      if (!currentWallet) {
+        // Пытаемся обновить состояние если кошелек не найден
+        if (selector) {
+          const updated = await updateConnectedState(selector);
+          if (!updated) {
+            throw new Error('Wallet not connected');
+          }
+        } else {
           throw new Error('Wallet not connected');
         }
       }
@@ -262,7 +224,7 @@ export function NearWalletProvider({ children }: NearWalletProviderProps) {
       addActivityLog(`Transaction error: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
       throw error;
     }
-  }, [currentWallet, isConnected, selector, updateConnectedState, addActivityLog]);
+  }, [currentWallet, selector, updateConnectedState, addActivityLog]);
 
   const handleNetworkChange = useCallback((newNetwork: "mainnet" | "testnet") => {
     if (isConnected) {
@@ -282,29 +244,6 @@ export function NearWalletProvider({ children }: NearWalletProviderProps) {
     initializeWallet();
   }, [initializeWallet]);
 
-  // Check for existing session on mount
-  useEffect(() => {
-    try {
-      const sessionData = localStorage.getItem('nearConnectSession');
-      if (sessionData) {
-        const session = JSON.parse(sessionData);
-        addActivityLog('Found existing session, attempting to restore...', 'info');
-        // Check if session is still valid (24 hours)
-        const isExpired = Date.now() - session.timestamp > 24 * 60 * 60 * 1000;
-        if (isExpired) {
-          localStorage.removeItem('nearConnectSession');
-          addActivityLog('Session expired, cleared from storage', 'info');
-          return;
-        }
-        // TODO: Implement session restoration when the library supports it
-        addActivityLog('Session restoration not yet implemented', 'info');
-      }
-    } catch (error) {
-      console.error('Session check error:', error);
-      addActivityLog(`Session check error: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
-    }
-  }, [addActivityLog]);
-
   const value: NearWalletContextType = {
     isConnected,
     isConnecting,
@@ -313,9 +252,7 @@ export function NearWalletProvider({ children }: NearWalletProviderProps) {
     network,
     connectWallet,
     disconnectWallet,
-    signMessage,
-    sendTransaction,
-    signAndSendTransaction, // ДОБАВЛЕНО
+    signAndSendTransaction,
     activityLog,
     setNetwork: handleNetworkChange,
   };
