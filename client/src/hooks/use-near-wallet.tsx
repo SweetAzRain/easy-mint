@@ -33,7 +33,7 @@ export function NearWalletProvider({ children }: NearWalletProviderProps) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [accountId, setAccountId] = useState<string | null>(null);
   const [walletName, setWalletName] = useState("Unknown Wallet");
-  const [network, setNetwork] = useState<"mainnet" | "testnet">("testnet"); // ИЗМЕНЕНО НА testnet
+  const [network, setNetwork] = useState<"mainnet" | "testnet">("mainnet"); // ИЗМЕНЕНО НА testnet
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
   const [selector, setSelector] = useState<any>(null);
   const [modal, setModal] = useState<any>(null);
