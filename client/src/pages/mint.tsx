@@ -26,7 +26,7 @@ export interface MintingState {
 }
 
 export default function MintPage() {
-  const { isConnected, accountId, wallet, connectWallet, disconnectWallet } = useNearWallet();
+  const { isConnected, accountId, signAndSendTransaction, connectWallet, disconnectWallet } = useNearWallet();
   const { uploadToIPFS, isUploading } = useIPFSUpload();
   const { toast } = useToast();
 
@@ -104,7 +104,7 @@ export default function MintPage() {
         description: formData.description,
         media: `${gateway}/${imageCid}`,
         reference: `${gateway}/${metadataCid}`
-      }, wallet);
+      }, signAndSendTransaction);
 
       setMintingState(prev => ({
         ...prev,
