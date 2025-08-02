@@ -30,6 +30,7 @@ export async function mintNFT(
     console.log("Calling NEAR smart contract...");
 
     // ИЗМЕНЕНО: Вызываем переданную функцию напрямую
+    // ИСПРАВЛЕНО: Синтаксис объекта для args
     const result = await signAndSendTransactionFn({
       receiverId: "easy-proxy.near", // Убедитесь, что это правильный адрес вашего контракта в mainnet
       actions: [{
@@ -37,9 +38,9 @@ export async function mintNFT(
         params: {
           methodName: "nft_mint_proxy",
           args: {
-            // ВАЖНО: Проверьте структуру аргументов вашего контракта
-            // Возможно, должно быть token_metadata, а не token_meta
-            token_meta { // ИЛИ token_metadata: { ... }
+            // ВАЖНО: Исправлен синтаксис объекта и имя поля
+            // ДОЛЖНО БЫТЬ token_metadata, как вы указали
+            token_metadata: { // <-- Исправлено: token_metadata: { ... }
               title: params.title,
               description: params.description,
               media: params.media.trim(), // trim() для удаления случайных пробелов
