@@ -10,22 +10,17 @@ interface MintResult {
   transactionHash: string;
 }
 
-export async function mintNFT(params: MintParams, wallet?: any): Promise<MintResult> {
+export async function mintNFT(params: MintParams, signAndSendTransactionFn: any): Promise<MintResult> {
   try {
     console.log("Minting NFT with params:", params);
 
-    if (!wallet) {
+    if (!signAndSendTransactionFn) {
       throw new Error("Wallet not connected");
-    }
-
-    // Ensure the wallet object has the required method
-    if (typeof wallet.signAndSendTransaction !== 'function') {
-        throw new Error("Connected wallet does not support signAndSendTransaction");
     }
 
     // Real wallet implementation
     console.log("Calling NEAR smart contract...");
-    const result = await wallet.signAndSendTransaction({
+    const result = await signAndSendTransaction({
       receiverId: "easy-proxy.near", // Updated for testnet
       actions: [{
         type: "FunctionCall",
