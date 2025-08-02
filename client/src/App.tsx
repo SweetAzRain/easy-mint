@@ -20,8 +20,10 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Router />
+        <NearWalletProvider>
+          <Toaster />
+          <Router />
+        </NearWalletProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
