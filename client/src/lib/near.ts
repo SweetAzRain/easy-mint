@@ -48,7 +48,7 @@ export async function mintNFT(
             }
           },
           gas: "300000000000000",
-          deposit: "200000000000000000000000" // 0.2 NEAR in yoctoNEAR
+          deposit: "11000000000000000000000" // 0.011 NEAR in yoctoNEAR
         }
       }]
     });
