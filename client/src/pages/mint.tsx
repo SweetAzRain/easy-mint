@@ -227,7 +227,7 @@ export default function MintPage() {
                 </h3>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Total Cost:</span>
-                  <span className="font-mono text-lg">0.2 NEAR</span>
+                  <span className="font-mono text-lg">0.011 NEAR</span>
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
                   This amount will be deducted from your wallet for minting
