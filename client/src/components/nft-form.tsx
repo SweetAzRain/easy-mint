@@ -20,14 +20,14 @@ export function NFTForm({ formData, onChange, onMint, isValid, isProcessing }: N
   const [descriptionError, setDescriptionError] = useState("");
 
   const handleTitleChange = (value: string) => {
-    if (value.length > 32) return;
+    if (value.length > 8) return;
     
     onChange({ ...formData, title: value });
     setTitleError(value.trim() ? "" : "Title is required");
   };
 
   const handleDescriptionChange = (value: string) => {
-    if (value.length > 256) return;
+    if (value.length > 20) return;
     
     onChange({ ...formData, description: value });
     setDescriptionError(value.trim() ? "" : "Description is required");
@@ -35,13 +35,13 @@ export function NFTForm({ formData, onChange, onMint, isValid, isProcessing }: N
 
   const getTitleCounterClass = () => {
     const length = formData.title.length;
-    if (length > 28) return "text-xs text-warning";
+    if (length > 6) return "text-xs text-warning";
     return "text-xs text-gray-500";
   };
 
   const getDescriptionCounterClass = () => {
     const length = formData.description.length;
-    if (length > 240) return "text-xs text-warning";
+    if (length > 16) return "text-xs text-warning";
     return "text-xs text-gray-500";
   };
 
