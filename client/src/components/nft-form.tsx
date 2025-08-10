@@ -70,7 +70,7 @@ export function NFTForm({ formData, onChange, onMint, isValid, isProcessing }: N
                 />
                 <div className="absolute right-3 top-3">
                   <span className={getTitleCounterClass()}>
-                    {formData.title.length}/32
+                    {formData.title.length}/8
                   </span>
                 </div>
               </div>
@@ -95,7 +95,7 @@ export function NFTForm({ formData, onChange, onMint, isValid, isProcessing }: N
                 />
                 <div className="absolute right-3 bottom-3">
                   <span className={getDescriptionCounterClass()}>
-                    {formData.description.length}/256
+                    {formData.description.length}/20
                   </span>
                 </div>
               </div>
